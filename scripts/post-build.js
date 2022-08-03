@@ -1,9 +1,5 @@
 import "./correct-import-extensions.js";
 import { promises as fs } from "fs";
-import { rollup } from "rollup";
-import { nodeResolve } from "@rollup/plugin-node-resolve";
-import ignore from "rollup-plugin-ignore";
-import babel from "rollup-plugin-babel";
 import { dirname, resolve } from "path";
 
 const { pathname } = new URL(import.meta.url);
