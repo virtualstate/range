@@ -1,5 +1,7 @@
 import {getChildrenFromRawNode, ok, name, h, properties} from "@virtualstate/focus";
-import {isArray} from "./is";
+import {isArray, isAsyncIterable, isPromise} from "./is";
+import {union} from "@virtualstate/union";
+import {findAsyncOptions, generateOptions} from "./async-options";
 
 export async function *Range(options?: Record<string | symbol, unknown>, input?: unknown): AsyncIterable<unknown> {
     const array = getChildrenFromRawNode(input);
@@ -18,14 +20,44 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
         const children = getChildrenFromRawNode(range);
         const defaults = properties(range);
         ok(isArray(children));
-        return h(Range, { ...defaults, ...options }, ...children);
+        return <Range {...defaults} {...options}>{...children}</Range>;
     });
     if (!others.length && mapped.length) {
         return yield mapped;
     }
 
     ok(!mapped.length, "Use range or values, not both");
-    const match = others.find(node => {
+
+    const [asyncKeys, hasAsyncKeys] = findAsyncOptions(options)
+
+    if (!hasAsyncKeys) {
+        return yield getMatch(options);
+    }
+
+    let yielded = false;
+    for await (const snapshotOptions of generateOptions(options, asyncKeys)) {
+        yield getMatch(snapshotOptions);
+        yielded = true;
+    }
+
+    if (!yielded) {
+        yield others.at(-1);
+    }
+
+    function isRange(node: unknown): boolean {
+        return name(node) === Range.name;
+    }
+
+    function getMatch(options: Record<string, unknown>) {
+        const match = others.find(node => isMatch(node, options));
+        if (match) {
+            return match;
+        } else {
+            return others.at(-1);
+        }
+    }
+
+    function isMatch(node: unknown, options: Record<string, unknown>) {
         const expected = Object.entries(
             properties(node)
         );
@@ -40,13 +72,5 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
             }
         }
         return true;
-    });
-    if (match) {
-        return yield match;
-    }
-    yield others.at(-1);
-
-    function isRange(node: unknown): boolean {
-        return name(node) === Range.name;
     }
 }
