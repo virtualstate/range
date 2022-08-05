@@ -10,6 +10,7 @@ import {
 import {isArray, isAsyncIterable, isPromise} from "./is";
 import {union} from "@virtualstate/union";
 import {findAsyncOptions, generateOptions} from "./async-options";
+import internal from "stream";
 
 const unknownPropertyKeys: readonly unknown[] = possiblePropertiesKeys;
 
@@ -56,10 +57,14 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
 
     function replaceMatch(match: unknown, options: Record<string, unknown>) {
         if (!isUnknownJSXNode(match)) return undefined;
+        const snapshotOptions = {
+            ...properties(match),
+            ...options
+        }
         return new Proxy(match, {
             get(target: unknown, p: string | symbol) {
                 if (unknownPropertyKeys.includes(p)) {
-                    return options;
+                    return snapshotOptions;
                 }
                 return match[p];
             }
@@ -75,6 +80,18 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
         }
     }
 
+    interface MatchValidatorFn {
+        (arg: unknown): unknown
+    }
+
+    function isMatchValidator(value: unknown): value is MatchValidatorFn {
+        return typeof value === "function";
+    }
+
+    function isMatchValidatorEntry(value: [string, unknown]): value is [string, MatchValidatorFn] {
+        return isMatchValidator(value[1]);
+    }
+
     function isMatch(node: unknown, options: Record<string, unknown>) {
         const expected = Object.entries(
             properties(node)
@@ -83,10 +100,20 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
             const keys = Object.keys(options);
             return keys.length === 0;
         }
-        for (const [key, value] of expected) {
-            const found = options[key];
-            if (found !== value) {
-                return false;
+        const validators = expected.filter(isMatchValidatorEntry);
+        if (validators.length) {
+            for (const [key, validator] of validators) {
+                const found = options[key];
+                if (!validator(found)) {
+                    return false;
+                }
+            }
+        } else {
+            for (const [key, value] of expected) {
+                const found = options[key];
+                if (found !== value) {
+                    return false;
+                }
             }
         }
         return true;

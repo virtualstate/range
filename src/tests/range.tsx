@@ -263,7 +263,6 @@ async function *Component(options: Record<string, unknown>) {
     const range = (
         <Range type="text" value="something">
             <input type="text" />
-            {undefined}
         </Range>
     );
     const snapshot = await children(range);
@@ -282,7 +281,6 @@ async function *Component(options: Record<string, unknown>) {
     const range = (
         <Range type="text" value={target}>
             <input type="text" />
-            {undefined}
         </Range>
     );
     target.push("something");
@@ -303,7 +301,6 @@ async function *Component(options: Record<string, unknown>) {
     const range = (
         <Range type="text" value={Promise.resolve("something")}>
             <input type="text" />
-            {undefined}
         </Range>
     );
 
@@ -315,4 +312,29 @@ async function *Component(options: Record<string, unknown>) {
     ok(name(snapshot[0]) === "input");
     ok(properties(snapshot[0]).type === "text");
     ok(properties(snapshot[0]).value === "something");
+}
+
+function isNumber(value: unknown): value is number {
+    return typeof value === "number";
+}
+
+function isString(value: unknown): value is string {
+    return typeof value === "string";
+}
+
+{
+    const range = (
+        <Range value={Promise.resolve(1)}>
+            <input type="number" value={isNumber} />
+            <input type="text" value={isString} />
+        </Range>
+    );
+    const snapshot = await children(range);
+
+    console.log(snapshot, properties(snapshot[0]));
+
+    ok(snapshot.length === 1);
+    ok(name(snapshot[0]) === "input");
+    ok(properties(snapshot[0]).type === "number");
+    ok(properties(snapshot[0]).value === 1);
 }
