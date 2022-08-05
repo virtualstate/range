@@ -76,7 +76,14 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
         if (match) {
             return replaceMatch(match, options);
         } else {
-            return replaceMatch(others.at(-1), options);
+            const node = others.at(-1);
+            if (typeof node === "undefined") return undefined;
+            const validators = Object.values(
+                properties(node)
+            )
+                .filter(isMatchValidator);
+            if (validators.length) return undefined;
+            return replaceMatch(node, options);
         }
     }
 
