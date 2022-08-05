@@ -1,7 +1,17 @@
-import {getChildrenFromRawNode, ok, name, h, properties} from "@virtualstate/focus";
+import {
+    getChildrenFromRawNode,
+    ok,
+    name,
+    h,
+    properties,
+    isUnknownJSXNode,
+    possiblePropertiesKeys
+} from "@virtualstate/focus";
 import {isArray, isAsyncIterable, isPromise} from "./is";
 import {union} from "@virtualstate/union";
 import {findAsyncOptions, generateOptions} from "./async-options";
+
+const unknownPropertyKeys: readonly unknown[] = possiblePropertiesKeys;
 
 export async function *Range(options?: Record<string | symbol, unknown>, input?: unknown): AsyncIterable<unknown> {
     const array = getChildrenFromRawNode(input);
@@ -12,10 +22,6 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
     const others = ranges.length ? (
         array.filter(value => !ranges.includes(value))
     ) : array;
-    if (!ranges.length && others.length === 1) {
-        return yield others.at(0);
-    }
-
     const mapped = ranges.map(range => {
         const children = getChildrenFromRawNode(range);
         const defaults = properties(range);
@@ -48,12 +54,24 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
         return name(node) === Range.name;
     }
 
+    function replaceMatch(match: unknown, options: Record<string, unknown>) {
+        if (!isUnknownJSXNode(match)) return undefined;
+        return new Proxy(match, {
+            get(target: unknown, p: string | symbol) {
+                if (unknownPropertyKeys.includes(p)) {
+                    return options;
+                }
+                return match[p];
+            }
+        });
+    }
+
     function getMatch(options: Record<string, unknown>) {
         const match = others.find(node => isMatch(node, options));
         if (match) {
-            return match;
+            return replaceMatch(match, options);
         } else {
-            return others.at(-1);
+            return replaceMatch(others.at(-1), options);
         }
     }
 

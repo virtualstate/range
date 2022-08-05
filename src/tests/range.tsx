@@ -1,4 +1,4 @@
-import {children, h, isComponentFn, name, ok} from "@virtualstate/focus";
+import {children, h, isComponentFn, name, ok, properties} from "@virtualstate/focus";
 import {Range} from "../range";
 import {Push} from "@virtualstate/promise";
 
@@ -256,4 +256,63 @@ async function *Component(options: Record<string, unknown>) {
 
     ok(snapshot.length === 1);
     ok(name(snapshot[0]) === "match");
+}
+
+
+{
+    const range = (
+        <Range type="text" value="something">
+            <input type="text" />
+            {undefined}
+        </Range>
+    );
+    const snapshot = await children(range);
+
+    console.log(snapshot, properties(snapshot[0]));
+
+    ok(snapshot.length === 1);
+    ok(name(snapshot[0]) === "input");
+    ok(properties(snapshot[0]).type === "text");
+    ok(properties(snapshot[0]).value === "something");
+}
+
+{
+
+    const target = new Push();
+    const range = (
+        <Range type="text" value={target}>
+            <input type="text" />
+            {undefined}
+        </Range>
+    );
+    target.push("something");
+    target.close();
+
+    const snapshot = await children(range);
+
+    console.log(snapshot, properties(snapshot[0]));
+
+    ok(snapshot.length === 1);
+    ok(name(snapshot[0]) === "input");
+    ok(properties(snapshot[0]).type === "text");
+    ok(properties(snapshot[0]).value === "something");
+}
+
+{
+
+    const range = (
+        <Range type="text" value={Promise.resolve("something")}>
+            <input type="text" />
+            {undefined}
+        </Range>
+    );
+
+    const snapshot = await children(range);
+
+    console.log(snapshot, properties(snapshot[0]));
+
+    ok(snapshot.length === 1);
+    ok(name(snapshot[0]) === "input");
+    ok(properties(snapshot[0]).type === "text");
+    ok(properties(snapshot[0]).value === "something");
 }
