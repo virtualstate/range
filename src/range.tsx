@@ -38,17 +38,11 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
     const [asyncKeys, hasAsyncKeys] = findAsyncOptions(options)
 
     if (!hasAsyncKeys) {
-        return yield getMatch(options);
+        return yield * getMatch(options);
     }
 
-    let yielded = false;
     for await (const snapshotOptions of generateOptions(options, asyncKeys)) {
-        yield getMatch(snapshotOptions);
-        yielded = true;
-    }
-
-    if (!yielded) {
-        yield others.at(-1);
+        yield * getMatch(snapshotOptions);
     }
 
     function isRange(node: unknown): boolean {
@@ -56,7 +50,7 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
     }
 
     function replaceMatch(match: unknown, options: Record<string, unknown>) {
-        if (!isUnknownJSXNode(match)) return undefined;
+        ok(isUnknownJSXNode(match));
         const snapshotOptions = {
             ...properties(match),
             ...options
@@ -71,20 +65,24 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
         });
     }
 
-    function getMatch(options: Record<string, unknown>) {
+    function * getMatch(options: Record<string, unknown>) {
         const match = others.find(node => isMatch(node, options));
         if (match) {
-            return replaceMatch(match, options);
+            yield replaceMatch(match, options);
         } else {
-            const node = others.at(-1);
-            if (typeof node === "undefined") return undefined;
-            const validators = Object.values(
-                properties(node)
-            )
-                .filter(isMatchValidator);
-            if (validators.length) return undefined;
-            return replaceMatch(node, options);
+            yield * getDefaultMatch(options);
         }
+    }
+
+    function * getDefaultMatch(options: Record<string, unknown>): Iterable<unknown> {
+        const node = others.at(-1);
+        ok(typeof node !== "undefined");
+        const validators = Object.values(
+            properties(node)
+        )
+            .filter(isMatchValidator);
+        if (validators.length) return undefined;
+        yield replaceMatch(node, options);
     }
 
     interface MatchValidatorFn {

@@ -1,3 +1,4 @@
+/* c8 ignore start */
 import {children, h, isComponentFn, name, ok, properties} from "@virtualstate/focus";
 import {Range} from "../range";
 import {Push} from "@virtualstate/promise";
@@ -209,8 +210,7 @@ async function *Component(options: Record<string, unknown>) {
 
     console.log(snapshot);
 
-    ok(snapshot.length === 1);
-    ok(name(snapshot[0]) === "component");
+    ok(snapshot.length === 0);
 }
 
 {
@@ -337,4 +337,16 @@ function isString(value: unknown): value is string {
     ok(name(snapshot[0]) === "input");
     ok(properties(snapshot[0]).type === "number");
     ok(properties(snapshot[0]).value === 1);
+}
+
+{
+    const range = (
+        <Range value={Promise.resolve(1)}>
+            <input type="text" value={isString} />
+        </Range>
+    );
+    const snapshot = await children(range);
+    console.log(snapshot);
+    ok(snapshot.length === 0);
+    ok(!snapshot[0]);
 }
