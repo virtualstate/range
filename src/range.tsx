@@ -5,7 +5,7 @@ import {
     h,
     properties,
     isUnknownJSXNode,
-    possiblePropertiesKeys, raw
+    possiblePropertiesKeys, raw, possibleChildrenKeys, children, isStaticChildNode
 } from "@virtualstate/focus";
 import {isArray, isAsyncIterable, isPromise} from "./is";
 import {union} from "@virtualstate/union";
@@ -13,22 +13,15 @@ import {findAsyncOptions, generateOptions} from "./async-options";
 import internal from "stream";
 
 const unknownPropertyKeys: readonly unknown[] = possiblePropertiesKeys;
+const unknownChildrenKeys: readonly unknown[] = possibleChildrenKeys;
 
 export async function *Range(options?: Record<string | symbol, unknown>, input?: unknown): AsyncIterable<unknown> {
     const array = getChildrenFromRawNode(input);
     ok(isArray(array), "Expected an array");
     ok(array.length > 0);
 
-    const ranges = array.filter(isRange);
-    const others = ranges.length ? (
-        array.filter(value => !ranges.includes(value))
-    ) : array;
-    const mapped = ranges.map(range => {
-        const children = getChildrenFromRawNode(range);
-        const defaults = properties(range);
-        ok(isArray(children));
-        return <Range {...defaults} {...options}>{...children}</Range>;
-    });
+    const [mapped, others] = splitRange(array, options);
+
     if (!others.length && mapped.length) {
         return yield mapped;
     }
@@ -56,13 +49,30 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
             ...options
         }
         const node = raw(match);
-        return {
-            ...Object.fromEntries(
-                Object.entries(node)
-                    .filter(([key]) => !unknownPropertyKeys.includes(key))
-            ),
+        const withoutProperties = Object.entries(node)
+            .filter(([key]) => !unknownPropertyKeys.includes(key));
+        const withoutChildren = withoutProperties
+            .filter(([key]) => !unknownChildrenKeys.includes(key))
+        const template = {
+            ...Object.fromEntries(withoutProperties),
             options: snapshotOptions
         }
+        const matchedChildren = matchChildren(template, options);
+        if (!matchedChildren) return template;
+        return {
+            ...Object.fromEntries(withoutChildren),
+            options: snapshotOptions,
+            children: matchedChildren
+        };
+    }
+
+    function matchChildren(template: unknown, options: Record<string, unknown>) {
+        const rawChildren = getChildrenFromRawNode(template);
+        if (!Array.isArray(rawChildren) || !rawChildren.length) return undefined;
+        const [mapped, others] = splitRange(rawChildren, options);
+        if (!mapped.length) return undefined;
+        ok(!others.length, "Use range or values, not both");
+        return mapped;
     }
 
     function * getMatch(options: Record<string, unknown>) {
@@ -122,5 +132,19 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
             }
         }
         return true;
+    }
+
+    function splitRange(array: unknown[], options: Record<string, unknown>) {
+        const ranges = array.filter(isRange);
+        const others = ranges.length ? (
+            array.filter(value => !ranges.includes(value))
+        ) : array;
+        const mapped = ranges.map(range => {
+            const children = getChildrenFromRawNode(range);
+            const defaults = properties(range);
+            ok(isArray(children));
+            return <Range {...defaults} {...options}>{...children}</Range>;
+        });
+        return [mapped, others];
     }
 }

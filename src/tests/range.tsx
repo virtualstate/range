@@ -1,10 +1,12 @@
 /* c8 ignore start */
-import {children, h, isComponentFn, isLike, name, ok, properties} from "@virtualstate/focus";
+import {children, getChildrenFromRawNode, h, isComponentFn, isLike, name, ok, properties} from "@virtualstate/focus";
 import {Range} from "../range";
 import {Push} from "@virtualstate/promise";
 
-async function *Component(options: Record<string, unknown>) {
-    yield <component {...options} />
+async function *Component(options: Record<string, unknown>, input?: unknown) {
+    const children = getChildrenFromRawNode(input);
+    console.log(Array.isArray(children) ? children.map(properties) : undefined);
+    yield <component {...options}>{input}</component>
 }
 
 {
@@ -362,4 +364,76 @@ function isString(value: unknown): value is string {
     ok(snapshot.length === 1);
     ok(name(snapshot[0]) === "component");
     ok(properties(snapshot[0]).value === 1);
+}
+
+{
+    const range = (
+        <Range value={1} type="number">
+            <match value={isNumber}>
+                <Range>
+                    <input type="text" value={isString} />
+                    <input type="number" value={isNumber} />
+                </Range>
+            </match>
+        </Range>
+    );
+    const snapshot = await children(range);
+
+    console.log(snapshot);
+
+    ok(snapshot.length === 1);
+    ok(name(snapshot[0]) === "match");
+
+    const matchSnapshot = await children(snapshot[0]);
+    console.log(matchSnapshot);
+    ok(matchSnapshot.length === 1);
+    ok(name(matchSnapshot[0]) === "input");
+    ok(properties(matchSnapshot[0]).type === "number");
+}
+
+{
+    const range = (
+        <Range value={1} type="number">
+            <Component value={isNumber}>
+                <Range>
+                    <input type="text" value={isString} />
+                    <input type="number" value={isNumber} />
+                </Range>
+            </Component>
+        </Range>
+    );
+    const snapshot = await children(range);
+
+    console.log(snapshot);
+
+    ok(snapshot.length === 1);
+    ok(name(snapshot[0]) === "component");
+
+    const matchSnapshot = await children(snapshot[0]);
+    console.log(matchSnapshot);
+    ok(matchSnapshot.length === 1);
+    ok(name(matchSnapshot[0]) === "input");
+    ok(properties(matchSnapshot[0]).type === "number");
+}
+
+{
+    const range = (
+        <Range value={1} type="number">
+            <match value={isNumber}>
+                <input type="text" />
+            </match>
+        </Range>
+    );
+    const snapshot = await children(range);
+
+    console.log(snapshot);
+
+    ok(snapshot.length === 1);
+    ok(name(snapshot[0]) === "match");
+
+    const matchSnapshot = await children(snapshot[0]);
+    console.log(matchSnapshot);
+    ok(matchSnapshot.length === 1);
+    ok(name(matchSnapshot[0]) === "input");
+    ok(properties(matchSnapshot[0]).type === "text");
 }
