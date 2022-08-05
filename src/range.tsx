@@ -5,7 +5,7 @@ import {
     h,
     properties,
     isUnknownJSXNode,
-    possiblePropertiesKeys
+    possiblePropertiesKeys, raw
 } from "@virtualstate/focus";
 import {isArray, isAsyncIterable, isPromise} from "./is";
 import {union} from "@virtualstate/union";
@@ -55,14 +55,14 @@ export async function *Range(options?: Record<string | symbol, unknown>, input?:
             ...properties(match),
             ...options
         }
-        return new Proxy(match, {
-            get(target: unknown, p: string | symbol) {
-                if (unknownPropertyKeys.includes(p)) {
-                    return snapshotOptions;
-                }
-                return match[p];
-            }
-        });
+        const node = raw(match);
+        return {
+            ...Object.fromEntries(
+                Object.entries(node)
+                    .filter(([key]) => !unknownPropertyKeys.includes(key))
+            ),
+            options: snapshotOptions
+        }
     }
 
     function * getMatch(options: Record<string, unknown>) {

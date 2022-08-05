@@ -1,5 +1,5 @@
 /* c8 ignore start */
-import {children, h, isComponentFn, name, ok, properties} from "@virtualstate/focus";
+import {children, h, isComponentFn, isLike, name, ok, properties} from "@virtualstate/focus";
 import {Range} from "../range";
 import {Push} from "@virtualstate/promise";
 
@@ -349,4 +349,17 @@ function isString(value: unknown): value is string {
     console.log(snapshot);
     ok(snapshot.length === 0);
     ok(!snapshot[0]);
+}
+
+{
+    const range = (
+        <Range value={Promise.resolve(1)}>
+            <Component value={isLike} />
+        </Range>
+    );
+    const snapshot = await children(range);
+    console.log(snapshot, properties(snapshot[0]));
+    ok(snapshot.length === 1);
+    ok(name(snapshot[0]) === "component");
+    ok(properties(snapshot[0]).value === 1);
 }
